@@ -1712,10 +1712,10 @@ const MasterLayout = ({ children }) => {
                       >
                         <div className='text-black hover-bg-transparent hover-text-primary d-flex align-items-center gap-3'>
                           <span className='w-44-px h-44-px bg-success-subtle text-success-main rounded-circle d-flex justify-content-center align-items-center flex-shrink-0'>
-                            <img
+                            {/* <img
                               src='assets/images/notification/profile-2.png'
                               alt=''
-                            />
+                            /> */}
                           </span>
                           <div>
                             <h6 className='text-md fw-semibold mb-4'>

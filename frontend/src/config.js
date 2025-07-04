@@ -2,7 +2,8 @@
 
 const config = {
   api: {
-    baseURL: process.env.REACT_APP_API_BASE_URL || 'https://warehousing-z9wl.onrender.com',
+    // baseURL: 'https://warehousing-z9wl.onrender.com',
+    baseURL: 'http://192.168.1.45:3001',
   },
 };
 
