@@ -5,6 +5,7 @@ import useReactApexChart from "@/hook/useReactApexChart";
 import axios from "axios";
 import config from '../../config';
 import React from "react";
+
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
@@ -16,8 +17,13 @@ const SalesStatisticOne = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [totalRevenue, setTotalRevenue] = React.useState(0);
+  const [chartRevenue, setChartRevenue] = React.useState(0);
   const [currency, setCurrency] = React.useState('INR');
   const [chartData, setChartData] = React.useState({ series: [], labels: [] });
+
+  const yearlyCacheRef = React.useRef(null);
+  const YEARLY_CACHE_KEY = 'salesStatisticYearlyData';
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   const fetchData = React.useCallback((selectedPeriod) => {
     setLoading(true);
@@ -37,6 +43,42 @@ const SalesStatisticOne = () => {
   const fetchYearlyData = async () => {
     setLoading(true);
     setError(null);
+
+    // ✅ Check in-memory cache first
+    if (yearlyCacheRef.current) {
+      const cached = yearlyCacheRef.current;
+      setChartData(cached.chartData);
+      setChartRevenue(cached.chartRevenue);
+      setCurrency(cached.currency);
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Check localStorage cache
+    const local = localStorage.getItem(YEARLY_CACHE_KEY);
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        const ageMs = Date.now() - (parsed.timestamp || 0);
+        if (ageMs < ONE_DAY_MS) {
+          // Data still valid
+          yearlyCacheRef.current = parsed;
+          setChartData(parsed.chartData);
+          setChartRevenue(parsed.chartRevenue);
+          setCurrency(parsed.currency);
+          setLoading(false);
+          return;
+        } else {
+          // Data expired
+          localStorage.removeItem(YEARLY_CACHE_KEY);
+        }
+      } catch (e) {
+        console.error('Error parsing cached data:', e);
+
+
+      }
+    }
+
     try {
       const now = new Date();
       const year = now.getFullYear();
@@ -47,18 +89,34 @@ const SalesStatisticOne = () => {
       const monthData = [];
       for (let m = 0; m <= now.getMonth(); m++) {
         const startDate = `${year}-${String(m + 1).padStart(2, '0')}-01`;
-        const endDate = new Date(year, m + 1, 0); // last day of month
+        const endDate = new Date(year, m + 1, 0);
         const endDateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
         const res = await axios.get(`${config.api.baseURL}/api/orders/custom?startDate=${startDate}&endDate=${endDateStr}`);
         monthData.push(res.data.totalRevenue || 0);
       }
-      setChartData({
+
+      const newChartData = {
         series: [{ name: 'Revenue', data: monthData }],
         labels: months.slice(0, now.getMonth() + 1)
-      });
-      setTotalRevenue(monthData.reduce((a, b) => a + b, 0));
-      setCurrency('INR');
+      };
+      const newChartRevenue = monthData.reduce((a, b) => a + b, 0);
+      const newCurrency = 'INR';
+
+      setChartData(newChartData);
+      setChartRevenue(newChartRevenue);
+      setCurrency(newCurrency);
       setLoading(false);
+
+
+      const cacheObj = {
+        chartData: newChartData,
+        chartRevenue: newChartRevenue,
+        currency: newCurrency,
+        timestamp: Date.now()
+      };
+      yearlyCacheRef.current = cacheObj;
+      localStorage.setItem(YEARLY_CACHE_KEY, JSON.stringify(cacheObj));
+
     } catch (err) {
       setError('Failed to load yearly data');
       setLoading(false);
@@ -100,11 +158,6 @@ const SalesStatisticOne = () => {
                 {currency === 'INR' ? '₹' : '$'}{Number(totalRevenue).toLocaleString()}
               </h6>
             )}
-            {/* You can keep or update the rest of the stat info as needed */}
-            {/* <span className='text-sm fw-semibold rounded-pill bg-success-focus text-success-main border br-success px-8 py-4 line-height-1 d-flex align-items-center gap-1'>
-              10% <Icon icon='bxs:up-arrow' className='text-xs' />
-            </span>
-            <span className='text-xs fw-medium'>+ $1500 Per Day</span> */}
           </div>
           <ReactApexChart
             options={{

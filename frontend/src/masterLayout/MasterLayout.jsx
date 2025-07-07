@@ -138,7 +138,7 @@ const MasterLayout = ({ children }) => {
                 />
                 <span>Dashboard</span>
               </Link>
-              {/* <ul className='sidebar-submenu'>
+              <ul className='sidebar-submenu'>
                 <li>
                   <Link
                     href='/'
@@ -238,7 +238,7 @@ const MasterLayout = ({ children }) => {
                     Finance & Banking
                   </Link>
                 </li>
-              </ul> */}
+              </ul>
             </li>
 
             <li className='sidebar-menu-group-title'>Application</li>
@@ -251,7 +251,7 @@ const MasterLayout = ({ children }) => {
                 <span>Sku List</span>
               </Link>
             </li>
-            {/* <li>
+            <li>
               <Link
                 href='/email'
                 className={pathname === "/email" ? "active-page" : ""}
@@ -289,7 +289,7 @@ const MasterLayout = ({ children }) => {
                 />
                 <span>Kanban</span>
               </Link>
-            </li> */}
+            </li>
 
             {/* Invoice Dropdown */}
             {/* <li className='dropdown'>

@@ -99,15 +99,15 @@ const UnitCountOne = () => {
                         <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
                             <div>
                                 <p className="fw-medium text-primary-light mb-1">Net Profit</p>
-                                {loading ? (
-                                    <h6 className="mb-0 display-6 fw-bold" style={{letterSpacing: '1px'}}>Loading...</h6>
-                                ) : error ? (
-                                    <h6 className="mb-0 display-6 fw-bold text-danger" style={{letterSpacing: '1px'}}>{error}</h6>
-                                ) : (
-                                    <h6 className={`mb-0 display-6 fw-bold`} style={{letterSpacing: '1px', color: totalNetProfit < 0 ? '#d32f2f' : '#388e3c'}}>
-                                        {`Rs.${Number(totalNetProfit).toFixed(2)}`}
-                                    </h6>
-                                )}
+                                <h6
+                                  className="mb-0 display-6 fw-bold"
+                                  style={{
+                                    letterSpacing: '1px',
+                                    color: totalNetProfit < 0 ? '#d32f2f' : '#388e3c'
+                                  }}
+                                >
+                                  {`Rs.${Number(loading || error ? 0 : totalNetProfit).toFixed(2)}`}
+                                </h6>
                             </div>
                             <div className="w-50-px h-50-px rounded-circle d-flex justify-content-center align-items-center shadow-lg"
                                  style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
