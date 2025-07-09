@@ -4,7 +4,8 @@ import { Icon } from "@iconify/react/dist/iconify.js";
 import useReactApexChart from "@/hook/useReactApexChart";
 import axios from "axios";
 import config from '../../config';
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useTimeframeData } from "@/helper/TimeframeDataContext";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -12,124 +13,55 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 
 const SalesStatisticOne = () => {
   let { chartOptions, chartSeries } = useReactApexChart();
+  const { data, loading: contextLoading } = useTimeframeData();
 
-  const [period, setPeriod] = React.useState('today');
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-  const [totalRevenue, setTotalRevenue] = React.useState(0);
-  const [chartRevenue, setChartRevenue] = React.useState(0);
-  const [currency, setCurrency] = React.useState('INR');
-  const [chartData, setChartData] = React.useState({ series: [], labels: [] });
+  const [period, setPeriod] = useState('week');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [chartRevenue, setChartRevenue] = useState(0);
+  const [currency, setCurrency] = useState('INR');
+  const [chartData, setChartData] = useState({ series: [], labels: [] });
 
-  const yearlyCacheRef = React.useRef(null);
-  const YEARLY_CACHE_KEY = 'salesStatisticYearlyData';
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-  const fetchData = React.useCallback((selectedPeriod) => {
-    setLoading(true);
-    setError(null);
-    axios.get(`${config.api.baseURL}/api/orders/${selectedPeriod}`)
-      .then(res => {
-        setTotalRevenue(res.data.totalRevenue || 0);
-        setCurrency(res.data.currency || 'INR');
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load data');
-        setLoading(false);
+  // For week, month, year, use context
+  useEffect(() => {
+    if (data && data[capitalizePeriod(period)]) {
+      setLoading(contextLoading);
+      setError(null);
+      const raw = data[capitalizePeriod(period)];
+      // Calculate sales as totalSales - cancelledAmount
+      const sales = raw.map(item => (item.totalSales || 0) - (item.cancelledAmount || 0));
+      let labels;
+      if (period === 'month') {
+        labels = raw.map(item => {
+          if (item.date) {
+            // Format as MM-DD
+            const d = new Date(item.date);
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${mm}-${dd}`;
+          }
+          return "";
+        });
+      } else {
+        labels = raw.map(item => item.month || item.day || item.date || "");
+      }
+      setChartData({
+        series: [{ name: 'Sales', data: sales }],
+        labels,
       });
-  }, []);
-
-  const fetchYearlyData = async () => {
-    setLoading(true);
-    setError(null);
-
-    // ✅ Check in-memory cache first
-    if (yearlyCacheRef.current) {
-      const cached = yearlyCacheRef.current;
-      setChartData(cached.chartData);
-      setChartRevenue(cached.chartRevenue);
-      setCurrency(cached.currency);
-      setLoading(false);
-      return;
+      setChartRevenue(sales.reduce((a, b) => a + b, 0));
+      setTotalRevenue(sales.reduce((a, b) => a + b, 0));
+      setCurrency('INR');
     }
+  }, [period, data, contextLoading]);
 
-    // ✅ Check localStorage cache
-    const local = localStorage.getItem(YEARLY_CACHE_KEY);
-    if (local) {
-      try {
-        const parsed = JSON.parse(local);
-        const ageMs = Date.now() - (parsed.timestamp || 0);
-        if (ageMs < ONE_DAY_MS) {
-          // Data still valid
-          yearlyCacheRef.current = parsed;
-          setChartData(parsed.chartData);
-          setChartRevenue(parsed.chartRevenue);
-          setCurrency(parsed.currency);
-          setLoading(false);
-          return;
-        } else {
-          // Data expired
-          localStorage.removeItem(YEARLY_CACHE_KEY);
-        }
-      } catch (e) {
-        console.error('Error parsing cached data:', e);
-
-
-      }
-    }
-
-    try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ];
-      const monthData = [];
-      for (let m = 0; m <= now.getMonth(); m++) {
-        const startDate = `${year}-${String(m + 1).padStart(2, '0')}-01`;
-        const endDate = new Date(year, m + 1, 0);
-        const endDateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
-        const res = await axios.get(`${config.api.baseURL}/api/orders/custom?startDate=${startDate}&endDate=${endDateStr}`);
-        monthData.push(res.data.totalRevenue || 0);
-      }
-
-      const newChartData = {
-        series: [{ name: 'Revenue', data: monthData }],
-        labels: months.slice(0, now.getMonth() + 1)
-      };
-      const newChartRevenue = monthData.reduce((a, b) => a + b, 0);
-      const newCurrency = 'INR';
-
-      setChartData(newChartData);
-      setChartRevenue(newChartRevenue);
-      setCurrency(newCurrency);
-      setLoading(false);
-
-
-      const cacheObj = {
-        chartData: newChartData,
-        chartRevenue: newChartRevenue,
-        currency: newCurrency,
-        timestamp: Date.now()
-      };
-      yearlyCacheRef.current = cacheObj;
-      localStorage.setItem(YEARLY_CACHE_KEY, JSON.stringify(cacheObj));
-
-    } catch (err) {
-      setError('Failed to load yearly data');
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchYearlyData();
-  }, []);
-
-  React.useEffect(() => {
-    fetchData(period);
-  }, [period, fetchData]);
+  function capitalizePeriod(p) {
+    if (p === 'week') return 'Week';
+    if (p === 'month') return 'Month';
+    if (p === 'year') return 'Year';
+    return p;
+  }
 
   return (
     <div className='col-xxl-6 col-xl-12'>
@@ -142,7 +74,6 @@ const SalesStatisticOne = () => {
               value={period}
               onChange={e => setPeriod(e.target.value)}
             >
-              <option value='today'>Today</option>
               <option value='week'>Weekly</option>
               <option value='month'>Monthly</option>
               <option value='year'>Yearly</option>
@@ -164,7 +95,8 @@ const SalesStatisticOne = () => {
               ...chartOptions,
               xaxis: {
                 ...chartOptions.xaxis,
-                categories: chartData.labels.length ? chartData.labels : chartOptions.xaxis?.categories
+                categories: chartData.labels.length ? chartData.labels : chartOptions.xaxis?.categories,
+                tickAmount: period === 'month' ? 7 : chartOptions.xaxis?.tickAmount,
               },
               yaxis: {
                 ...chartOptions.yaxis,

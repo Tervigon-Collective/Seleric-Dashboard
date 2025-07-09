@@ -2,8 +2,7 @@
 
 const config = {
   api: {
-    // baseURL: 'https://warehousing-z9wl.onrender.com',
-    baseURL: 'http://192.168.1.45:3001',
+    baseURL: 'https://dashbackend-a3cbagbzg0hydhen.centralindia-01.azurewebsites.net',
   },
 };
 
